@@ -17,11 +17,7 @@ export async function POST() {
     const paymentIntent = await stripe.paymentIntents.create({
       amount: 1000,
       currency: 'jpy',
-      // payment_method_types: ['card']
-      // In the latest version of the API, specifying the `automatic_payment_methods` parameter is optional because Stripe enables its functionality by default.
-      automatic_payment_methods: {
-        enabled: true
-      }
+      payment_method_types: ['card']
     });
 
     if (!paymentIntent.client_secret) {

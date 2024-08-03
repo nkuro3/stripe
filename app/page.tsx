@@ -1,6 +1,6 @@
 'use client';
 
-import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
+import { Elements, PaymentElement, useStripe, useElements, AddressElement } from '@stripe/react-stripe-js';
 import { Appearance, loadStripe, StripeElementsOptions, StripePaymentElementOptions } from '@stripe/stripe-js';
 import { useState, useEffect } from 'react';
 
@@ -110,12 +110,25 @@ const Form = () => {
   };
 
   const paymentElementOptions: StripePaymentElementOptions = {
-    layout: 'tabs'
+    layout: 'tabs',
+    defaultValues: {
+      billingDetails: {
+        address: {
+          country: 'JP'
+        }
+      }
+    }
   };
 
   return (
     <form id="payment-form" onSubmit={handleSubmit}>
       <PaymentElement id="payment-element" options={paymentElementOptions} />
+      <AddressElement
+        options={{
+          mode: 'billing',
+          allowedCountries: ['JP'] // 日本のみに制限する場合
+        }}
+      />
       <button disabled={isLoading || !stripe || !elements} id="submit">
         <span id="button-text">{isLoading ? <div className="spinner" id="spinner"></div> : 'Pay now'}</span>
       </button>
