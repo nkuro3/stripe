@@ -1,7 +1,7 @@
 'use client';
 
 import { Elements, PaymentElement, useStripe, useElements, AddressElement } from '@stripe/react-stripe-js';
-import { Appearance, loadStripe, StripeElementsOptions, StripePaymentElementOptions } from '@stripe/stripe-js';
+import { Appearance, loadStripe, StripePaymentElementOptions } from '@stripe/stripe-js';
 import { useState, useEffect } from 'react';
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY as string);
@@ -28,8 +28,10 @@ const Home = () => {
     theme: 'stripe'
   };
 
-  const options: StripeElementsOptions = {
+  // StripeElementsOptions externalPaymentMethodTypesが型にないのでlintエラーが出る
+  const options = {
     clientSecret,
+    externalPaymentMethodTypes: ['external_paypay'],
     appearance
   };
 
@@ -50,6 +52,7 @@ const Form = () => {
 
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState<string | undefined>(undefined);
+  const [paymentMethod, setPaymentMethod] = useState('');
 
   useEffect(() => {
     if (!stripe) return;
@@ -87,23 +90,34 @@ const Form = () => {
 
     setIsLoading(true);
 
-    const { error } = await stripe.confirmPayment({
-      elements,
-      confirmParams: {
-        // Make sure to change this to your payment completion page
-        return_url: 'http://localhost:3000'
-      }
-    });
-
-    // This point will only be reached if there is an immediate error when
-    // confirming the payment. Otherwise, your customer will be redirected to
-    // your `return_url`. For some payment methods like iDEAL, your customer will
-    // be redirected to an intermediate site first to authorize the payment, then
-    // redirected to the `return_url`.
-    if (error.type === 'card_error' || error.type === 'validation_error') {
-      setMessage(error.message);
+    if (paymentMethod === PaymentMethod.PAYPAY) {
+      const response = await fetch('/api/create-paypay', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: null
+      });
+      const { data } = await response.json();
+      console.log(data.url);
+      window.location.href = data.url;
     } else {
-      setMessage('An unexpected error occurred.');
+      const { error } = await stripe.confirmPayment({
+        elements,
+        confirmParams: {
+          // Make sure to change this to your payment completion page
+          return_url: 'http://localhost:3000'
+        }
+      });
+
+      // This point will only be reached if there is an immediate error when
+      // confirming the payment. Otherwise, your customer will be redirected to
+      // your `return_url`. For some payment methods like iDEAL, your customer will
+      // be redirected to an intermediate site first to authorize the payment, then
+      // redirected to the `return_url`.
+      if (error.type === 'card_error' || error.type === 'validation_error') {
+        setMessage(error.message);
+      } else {
+        setMessage('An unexpected error occurred.');
+      }
     }
 
     setIsLoading(false);
@@ -117,18 +131,28 @@ const Form = () => {
           country: 'JP'
         }
       }
-    }
+    },
+    paymentMethodOrder: [PaymentMethod.CARD, PaymentMethod.PAYPAY]
   };
 
   return (
     <form id="payment-form" onSubmit={handleSubmit}>
-      <PaymentElement id="payment-element" options={paymentElementOptions} />
-      <AddressElement
-        options={{
-          mode: 'billing',
-          allowedCountries: ['JP'] // 日本のみに制限する場合
+      <PaymentElement
+        id="payment-element"
+        options={paymentElementOptions}
+        onChange={(e) => {
+          console.log(e);
+          setPaymentMethod(e?.value?.type);
         }}
       />
+      {paymentMethod === PaymentMethod.CARD && (
+        <AddressElement
+          options={{
+            mode: 'billing',
+            allowedCountries: ['JP'] // 日本のみに制限する場合
+          }}
+        />
+      )}
       <button disabled={isLoading || !stripe || !elements} id="submit">
         <span id="button-text">{isLoading ? <div className="spinner" id="spinner"></div> : 'Pay now'}</span>
       </button>
@@ -137,5 +161,12 @@ const Form = () => {
     </form>
   );
 };
+
+export const PaymentMethod = {
+  CARD: 'card',
+  PAYPAY: 'external_paypay'
+};
+
+export type PaymentMethod = typeof PaymentMethod;
 
 export default Home;
