@@ -57,10 +57,13 @@ const Form = () => {
   useEffect(() => {
     if (!stripe) return;
 
+    // 決済を実行した後のリダイレクトURL
+    // http://localhost:3000/?payment_intent=pi_3Pjzq8BZECcqCgM507daWNd9&payment_intent_client_secret=pi_3Pjzq8BZECcqCgM507daWNd9_secret_3OVBRzh047asjPbb8Xak8Csy0&redirect_status=succeeded
     const clientSecret = new URLSearchParams(window.location.search).get('payment_intent_client_secret');
 
     if (!clientSecret) return;
 
+    // 決済のステータスを取得する
     stripe.retrievePaymentIntent(clientSecret).then(({ paymentIntent }) => {
       switch (paymentIntent?.status) {
         case 'succeeded':
@@ -91,6 +94,7 @@ const Form = () => {
     setIsLoading(true);
 
     if (paymentMethod === PaymentMethod.PAYPAY) {
+      // PayPayの専用支払い画面を作成
       const response = await fetch('/api/create-paypay', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -98,6 +102,7 @@ const Form = () => {
       });
       const { data } = await response.json();
       console.log(data.url);
+      // PayPayの専用支払い画面にリダイレクトさせる
       window.location.href = data.url;
     } else {
       const { error } = await stripe.confirmPayment({
@@ -125,14 +130,15 @@ const Form = () => {
 
   const paymentElementOptions: StripePaymentElementOptions = {
     layout: 'tabs',
-    defaultValues: {
-      billingDetails: {
-        address: {
-          country: 'JP'
-        }
-      }
-    },
-    paymentMethodOrder: [PaymentMethod.CARD, PaymentMethod.PAYPAY]
+    // Address ElementでJPのみに制限しているので、ここでデフォルトの国を設定する必要はない
+    // defaultValues: {
+    //   billingDetails: {
+    //     address: {
+    //       country: 'JP'
+    //     }
+    //   }
+    // },
+    paymentMethodOrder: [PaymentMethod.CARD, PaymentMethod.PAYPAY] // tabの表示順
   };
 
   return (
@@ -142,13 +148,13 @@ const Form = () => {
         options={paymentElementOptions}
         onChange={(e) => {
           console.log(e);
-          setPaymentMethod(e?.value?.type);
+          setPaymentMethod(e?.value?.type); // 支払い方法がここから取得できる。
         }}
       />
       {paymentMethod === PaymentMethod.CARD && (
         <AddressElement
           options={{
-            mode: 'billing',
+            mode: 'billing', // billing 請求先 | shipping 請求先+配送先まで指定できる
             allowedCountries: ['JP'] // 日本のみに制限する場合
           }}
         />
